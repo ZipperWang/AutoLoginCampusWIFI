@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.29)
-project(untitled2)
+project(AutoLogin)
 
 set(CMAKE_CXX_STANDARD 11)
 
@@ -14,12 +14,13 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 
 
 
-add_executable(untitled2 main.cpp
+add_executable(AutoLogin main.cpp
         include/encode.h
         include/HttpRequest.h
         include/Tools.h
-        include/struct.h)
+        include/WIFI.h
+        include/FileHandler.h)
 
 # 链接 OpenSSL 库
 # 设置链接 OpenSSL 的库文件
-target_link_libraries(untitled2 ${OPENSSL_LIBRARIES}/libssl.lib ${OPENSSL_LIBRARIES}/libcrypto.lib curl libcurl)
+target_link_libraries(AutoLogin ${OPENSSL_LIBRARIES}/libssl.lib ${OPENSSL_LIBRARIES}/libcrypto.lib curl libcurl)

@@ -1,19 +1,46 @@
 #include <iostream>
+#include <fstream>
 #include "encode.h"
 #include "HttpRequest.h"
+#include "FileHandler.h"
 #include "Tools.h"
+#include "WIFI.h"
 
 using namespace std;
+
 string username = "username";
 string password = "password";
+
+wstring projectName = L"AutoLogin";
+
 int main() {
+    AddSelfToStartup(projectName);
+
+
+    auto *fileHandler = new FileHandler("Account");
+    if (fileHandler->fileExists()){
+        fileHandler->read(username);
+        fileHandler->read(password);
+    } else{
+        cout << "请输入你的账号：";
+        cin >> username;
+        cout << "请输入你的密码：";
+        cin >> password;
+    }
+
+
+    connectOpenWiFi("NWAFU");
+    Sleep(1000);
+
+
     HttpRequest httpRequest;
 
-    string full_url = "https://portal.nwafu.edu.cn/cgi-bin/get_challenge?username=2024011843&ip=&callback=jsonp";
+    string full_url = "https://portal.nwafu.edu.cn/cgi-bin/get_challenge?username=" + username + "&ip=&callback=jsonp";
     string getResponse = httpRequest.get(full_url);
     cout << "GET Response: " << getResponse << endl;
     cout << "GET Response: " << extract_field(getResponse, "client_ip") << endl;
     string tocken = extract_field(getResponse, "challenge");
+
 
     string ip = extract_field(getResponse, "client_ip");
 
@@ -30,7 +57,8 @@ int main() {
     cout<< "chksum: "<< chksum << endl;
 
     std::string query = "https://portal.nwafu.edu.cn/cgi-bin/srun_portal";
-    query += "?callback=jsonp1583251661368";
+    query += "?callback=jQuery112408237591090552232_";
+    query += getMillisecondTimestampString();
     query += "&action=login";
     query += "&username=" + username;
     query += "&password={MD5}" + hmd5;
@@ -41,10 +69,17 @@ int main() {
     query += "&chksum=" + chksum;
     query += "&n=200";
     query += "&type=1";
+    query += "&_=" + getMillisecondTimestampString();
 
     string loginResponse = httpRequest.get(encode_url_params(query));
     cout<< "loginRequests: " << encode_url_params(query) << endl;
     cout << "loginResponse: " << loginResponse;
+    if (extract_field(loginResponse, "error") == "ok"){
+        if(fileHandler->openForWrite()){
+            fileHandler->clearFile();
+            fileHandler->write(username + "\n" + password);
+        }
+    }
 
     return 0;
 }
