@@ -21,9 +21,9 @@ int main() {
         fileHandler->read(username);
         fileHandler->read(password);
     } else{
-        cout << "请输入你的账号：";
+        cout << "Input Your Student ID: ";
         cin >> username;
-        cout << "请输入你的密码：";
+        cout << "Input Your Password: ";
         cin >> password;
     }
 
