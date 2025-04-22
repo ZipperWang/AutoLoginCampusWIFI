@@ -14,8 +14,7 @@ string password = "password";
 wstring projectName = L"AutoLogin";
 
 int main() {
-    AddSelfToStartup(projectName);
-
+    SetupNetCheckAutoStart(projectName);
 
     auto *fileHandler = new FileHandler("Account");
     if (fileHandler->fileExists()){

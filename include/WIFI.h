@@ -8,7 +8,8 @@
 #include <cstdlib>
 #include <string>
 #include <chrono>
-
+#include <windows.h>
+#include <string>
 #define UNTITLED2_STRUCT_H
 
 
@@ -48,44 +49,102 @@ void connectOpenWiFi(const std::string& ssid) {
 
 }
 
-bool AddSelfToStartup(const std::wstring& appName) {
-    // 获取当前程序的完整路径
-    wchar_t path[MAX_PATH];
-    GetModuleFileNameW(NULL, path, MAX_PATH);
+bool registerSilentStartupViaVBS(const std::wstring& appName) {
+    // 获取当前程序路径
+    wchar_t exePath[MAX_PATH];
+    GetModuleFileNameW(NULL, exePath, MAX_PATH);
+    std::wstring exeFullPath = exePath;
 
-    // 打开注册表项
-    HKEY hKey;
-    LONG result = RegOpenKeyExW(
-            HKEY_CURRENT_USER,
-            L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-            0, KEY_WRITE, &hKey
-    );
+    // 获取当前目录（vbs 文件生成在这里）
+    size_t lastSlash = exeFullPath.find_last_of(L"\\/");
+    std::wstring exeDir = exeFullPath.substr(0, lastSlash);
+    std::wstring vbsPath = exeDir + L"\\run_self_silent.vbs";
 
-    if (result != ERROR_SUCCESS) {
-        std::wcerr << L"无法打开注册表键！" << std::endl;
+    // 创建 .vbs 文件（用于静默启动 .exe）
+    std::wofstream vbsFile(vbsPath.c_str());
+    if (!vbsFile.is_open()) {
+        std::wcerr << L"VBS 文件创建失败！" << std::endl;
         return false;
     }
 
-    // 写入自启动项
-    result = RegSetValueExW(
+    vbsFile << L"Set WshShell = CreateObject(\"WScript.Shell\")\n";
+    vbsFile << L"WshShell.Run \"" << exeFullPath << L"\", 0, False\n";
+    vbsFile.close();
+
+    // 写入注册表 -> HKEY_CURRENT_USER\...\Run
+    HKEY hKey;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER,
+                      L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                      0, KEY_SET_VALUE, &hKey) != ERROR_SUCCESS) {
+        std::wcerr << L"打开注册表失败！" << std::endl;
+        return false;
+    }
+
+    LONG result = RegSetValueExW(
             hKey,
-            appName.c_str(), // 项名称
-            0, REG_SZ,
-            (const BYTE*)path,
-            static_cast<DWORD>((wcslen(path) + 1) * sizeof(wchar_t))
+            appName.c_str(),
+            0,
+            REG_SZ,
+            (const BYTE*)vbsPath.c_str(),
+            static_cast<DWORD>((vbsPath.size() + 1) * sizeof(wchar_t))
     );
 
     RegCloseKey(hKey);
 
-    if (result == ERROR_SUCCESS) {
-        std::wcout << L"成功添加开机自启：" << path << std::endl;
-        return true;
-    } else {
-        std::wcerr << L"设置注册表失败！" << std::endl;
+    if (result != ERROR_SUCCESS) {
+        std::wcerr << L"注册表写入失败！" << std::endl;
         return false;
     }
-}
 
+    std::wcout << L"已成功创建 VBS 并注册为开机自启：" << vbsPath << std::endl;
+    return true;
+}
+// 自动生成网络检测 VBS 脚本，并注册开机自启
+bool SetupNetCheckAutoStart(const std::wstring& regName) {
+    // 获取当前 EXE 路径
+    wchar_t exePath[MAX_PATH];
+    GetModuleFileNameW(NULL, exePath, MAX_PATH);
+    std::wstring exeFullPath = exePath;
+
+    // 构造 VBS 脚本路径（与程序同目录）
+    size_t pos = exeFullPath.find_last_of(L"\\/");
+    std::wstring exeDir = exeFullPath.substr(0, pos);
+    std::wstring vbsPath = exeDir + L"\\auto_check_net.vbs";
+
+    // 写 VBS 内容
+    std::wofstream vbsFile(vbsPath.c_str());
+    if (!vbsFile.is_open()) return false;
+
+    vbsFile << L"Set objShell = CreateObject(\"WScript.Shell\")\n";
+    vbsFile << L"exePath = \"" << exeFullPath << L"\"\n";
+    vbsFile << L"Do\n";
+    vbsFile << L"    On Error Resume Next\n";
+    vbsFile << L"    Set objXML = CreateObject(\"Microsoft.XMLHTTP\")\n";
+    vbsFile << L"    objXML.Open \"GET\", \"http://www.msftconnecttest.com/connecttest.txt\", False\n";
+    vbsFile << L"    objXML.Send\n";
+    vbsFile << L"    If Err.Number <> 0 Or objXML.Status <> 200 Then\n";
+    vbsFile << L"        objShell.Run \"\"\"\" & exePath & \"\"\"\", 0, False\n";
+    vbsFile << L"    End If\n";
+    vbsFile << L"    WScript.Sleep 60000\n";
+    vbsFile << L"Loop\n";
+
+    vbsFile.close();
+
+    // 注册到开机启动（写注册表）
+    HKEY hKey;
+    if (RegOpenKeyExW(HKEY_CURRENT_USER,
+                      L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                      0, KEY_SET_VALUE, &hKey) != ERROR_SUCCESS) {
+        return false;
+    }
+
+    LONG res = RegSetValueExW(hKey, regName.c_str(), 0, REG_SZ,
+                              (const BYTE*)vbsPath.c_str(),
+                              static_cast<DWORD>((vbsPath.size() + 1) * sizeof(wchar_t)));
+
+    RegCloseKey(hKey);
+    return res == ERROR_SUCCESS;
+}
 std::string getMillisecondTimestampString() {
     auto now = std::chrono::system_clock::now();
     auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
