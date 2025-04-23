@@ -9,7 +9,7 @@
 #include <string>
 #include <chrono>
 #include <windows.h>
-#include <string>
+#include <wininet.h>
 #define UNTITLED2_STRUCT_H
 
 
@@ -47,6 +47,21 @@ void connectOpenWiFi(const std::string& ssid) {
     std::string connectCmd = "netsh wlan connect name=\"" + ssid + "\"";
     system(connectCmd.c_str());
 
+}
+
+bool IsConnectedToInternet() {
+    HINTERNET hInternet = InternetOpen("NetDetect", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
+    if (!hInternet) return false;
+
+    HINTERNET hUrl = InternetOpenUrl(hInternet, "http://www.gstatic.com/generate_204", NULL, 0, INTERNET_FLAG_NO_UI, 0);
+    if (hUrl) {
+        InternetCloseHandle(hUrl);
+        InternetCloseHandle(hInternet);
+        return true;
+    }
+
+    InternetCloseHandle(hInternet);
+    return false;
 }
 
 bool registerSilentStartupViaVBS(const std::wstring& appName) {

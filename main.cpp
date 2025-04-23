@@ -14,6 +14,9 @@ string password = "password";
 wstring projectName = L"AutoLogin";
 
 int main() {
+
+    if (IsConnectedToInternet()) return -1;
+
     SetupNetCheckAutoStart(projectName);
 
     auto *fileHandler = new FileHandler("Account");

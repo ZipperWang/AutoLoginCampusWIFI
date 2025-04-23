@@ -23,4 +23,4 @@ add_executable(AutoLogin main.cpp
 
 # 链接 OpenSSL 库
 # 设置链接 OpenSSL 的库文件
-target_link_libraries(AutoLogin ${OPENSSL_LIBRARIES}/libssl.lib ${OPENSSL_LIBRARIES}/libcrypto.lib curl libcurl)
+target_link_libraries(AutoLogin ${OPENSSL_LIBRARIES}/libssl.lib ${OPENSSL_LIBRARIES}/libcrypto.lib curl libcurl wininet)
