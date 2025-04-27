@@ -10,7 +10,11 @@
 #include <chrono>
 #include <windows.h>
 #include <wininet.h>
+#include <cstdlib>
 #define UNTITLED2_STRUCT_H
+
+#undef UNICODE
+#undef _UNICODE
 
 
 void connectOpenWiFi(const std::string& ssid) {
@@ -63,6 +67,37 @@ bool IsConnectedToInternet() {
     InternetCloseHandle(hInternet);
     return false;
 }
+
+bool isInternetAccessible()
+{
+    HINTERNET hInternet = InternetOpen(reinterpret_cast<LPCSTR>(L"MyInternetChecker"), INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
+    if (hInternet == NULL)
+        return false;
+
+    HINTERNET hConnect = InternetOpenUrl(
+            hInternet,
+            reinterpret_cast<LPCSTR>(L"http://www.msftconnecttest.com/connecttest.txt"),
+            NULL,
+            0,
+            INTERNET_FLAG_NO_CACHE_WRITE,
+            0);
+
+    bool result = false;
+    if (hConnect != NULL)
+    {
+        result = true; // 能打开网址
+        InternetCloseHandle(hConnect);
+    }
+
+    InternetCloseHandle(hInternet);
+    return result;
+}
+
+bool isInternetAvailable() {
+    int exitCode = system("ping -n 1 www.baidu.com > nul"); // Windows
+    return exitCode == 0;
+}
+
 
 bool registerSilentStartupViaVBS(const std::wstring& appName) {
     // 获取当前程序路径

@@ -14,8 +14,10 @@ string password = "password";
 wstring projectName = L"AutoLogin";
 
 int main() {
+    DWORD flags;
 
-    if (IsConnectedToInternet()) return -1;
+    if (isInternetAvailable()) return -1;
+
 
     SetupNetCheckAutoStart(projectName);
 
