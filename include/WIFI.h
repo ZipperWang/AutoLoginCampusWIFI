@@ -164,20 +164,47 @@ bool SetupNetCheckAutoStart(const std::wstring& regName) {
     // 写 VBS 内容
     std::wofstream vbsFile(vbsPath.c_str());
     if (!vbsFile.is_open()) return false;
-
+    std::cout<<"start writing file"<<std::endl;
     vbsFile << L"Set objShell = CreateObject(\"WScript.Shell\")\n";
-    vbsFile << L"exePath = \"" << exeFullPath << L"\"\n";
+    vbsFile << L"Set objFSO = CreateObject(\"Scripting.FileSystemObject\")\n";
+    vbsFile << L"logFilePath = \"logfile.txt\"  ' \n";
+    vbsFile << L"exePath = \"" << exeFullPath << L"\"\n";  // 使用传入的exe路径
     vbsFile << L"Do\n";
     vbsFile << L"    On Error Resume Next\n";
     vbsFile << L"    Set objXML = CreateObject(\"Microsoft.XMLHTTP\")\n";
     vbsFile << L"    objXML.Open \"GET\", \"http://www.msftconnecttest.com/connecttest.txt\", False\n";
     vbsFile << L"    objXML.Send\n";
     vbsFile << L"    If Err.Number <> 0 Or objXML.Status <> 200 Then\n";
-    vbsFile << L"        objShell.Run \"\"\"\" & exePath & \"\"\"\", 0, False\n";
+    vbsFile << L"        ' \n";
+    vbsFile << L"        Set objLogFile = objFSO.OpenTextFile(logFilePath, 8, True) ' 8 - Append mode\n";
+    vbsFile << L"        objLogFile.WriteLine Now & \" - Network test failed. Running AutoLogin.exe...\"\n";
+    vbsFile << L"        objLogFile.Close\n";
+    vbsFile << L"        objShell.Run exePath, 0, False\n";
+    vbsFile << L"    Else\n";
+    vbsFile << L"         \n";
+    vbsFile << L"        Set objLogFile = objFSO.OpenTextFile(logFilePath, 8, True)\n";
+    vbsFile << L"        objLogFile.WriteLine Now & \" - Network is up. No action needed.\"\n";
+    vbsFile << L"        objLogFile.Close\n";
     vbsFile << L"    End If\n";
-    vbsFile << L"    WScript.Sleep 60000\n";
+    vbsFile << L"\n";  // 空行分隔
+    vbsFile << L"    ' \n";
+    vbsFile << L"    Set objDate = CreateObject(\"WScript.Network\")\n";
+    vbsFile << L"    currentTime = Now\n";
+    vbsFile << L"    currentHour = Hour(currentTime)\n";
+    vbsFile << L"    currentMinute = Minute(currentTime)\n";
+    vbsFile << L"    If currentHour = 0 And currentMinute = 0 Then\n";
+    vbsFile << L"        ' \n";
+    vbsFile << L"        Set objLogFile = objFSO.OpenTextFile(logFilePath, 2, True) ' 2 - For Writing\n";
+    vbsFile << L"        objLogFile.Close ' \n";
+    vbsFile << L"        Set objLogFile = objFSO.OpenTextFile(logFilePath, 8, True) ' 8 - Append mode\n";
+    vbsFile << L"        objLogFile.WriteLine \"Log file cleared at \" & Now\n";
+    vbsFile << L"        objLogFile.Close\n";
+    vbsFile << L"    End If\n";
+    vbsFile << L"\n";  // 空行分隔
+    vbsFile << L"    ' \n";
+    vbsFile << L"    WScript.Sleep 60000 ' 60 = 60000\n";
     vbsFile << L"Loop\n";
-
+    std::cout<< "finished";
     vbsFile.close();
 
     // 注册到开机启动（写注册表）

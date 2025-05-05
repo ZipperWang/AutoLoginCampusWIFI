@@ -16,10 +16,10 @@ wstring projectName = L"AutoLogin";
 int main() {
     DWORD flags;
 
-    if (isInternetAvailable()) return -1;
+    //if (isInternetAvailable()) return -1;
 
 
-    SetupNetCheckAutoStart(projectName);
+    if (!SetupNetCheckAutoStart(projectName)) return -1;
 
     auto *fileHandler = new FileHandler("Account");
     if (fileHandler->fileExists()){
