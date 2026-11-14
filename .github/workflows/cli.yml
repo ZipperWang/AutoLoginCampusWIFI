@@ -1,0 +1,86 @@
+name: Campus CLI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+    tags: ['V*', 'v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            target: x86_64-pc-windows-msvc
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+          - runner: macos-15
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    name: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: 配置Rust
+        run: rustup toolchain install stable --profile minimal --component clippy,rustfmt --target ${{ matrix.target }}
+      - name: 检查格式
+        run: cargo +stable fmt --all -- --check
+      - name: 静态检查
+        run: cargo +stable clippy --workspace --locked --all-targets --target ${{ matrix.target }} -- -D warnings
+      - name: 测试
+        run: cargo +stable test --locked --workspace --target ${{ matrix.target }}
+      - name: 编译
+        run: cargo +stable build --locked --release -p campus-cli --target ${{ matrix.target }}
+      - name: 打包Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $binary = 'target/${{ matrix.target }}/release/campus.exe'
+          & $binary --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Compress-Archive -Path $binary -DestinationPath campus-${{ matrix.target }}.zip
+      - name: 打包Linux和macOS
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          target/${{ matrix.target }}/release/campus --version
+          tar -C target/${{ matrix.target }}/release -czf campus-${{ matrix.target }}.tar.gz campus
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: campus-${{ matrix.target }}
+          path: |
+            campus-*.zip
+            campus-*.tar.gz
+          if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          pattern: campus-*
+          merge-multiple: true
+          path: dist
+      - name: 发布命令行客户端
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        working-directory: dist
+        run: |
+          sha256sum campus-* > SHA256SUMS
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" --repo "$REPO" --clobber campus-* SHA256SUMS
+          else
+            gh release create "$TAG" --repo "$REPO" --verify-tag --generate-notes campus-* SHA256SUMS
+          fi
