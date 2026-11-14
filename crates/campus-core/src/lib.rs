@@ -1,4 +1,5 @@
 mod protocol;
+pub mod self_service;
 
 use std::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
@@ -206,6 +207,15 @@ impl Portal {
             return Ok(Session::Offline);
         }
         Err(PortalError::Unknown)
+    }
+
+    pub async fn online_username(&self) -> Result<String, PortalError> {
+        let reply = self.request("/cgi-bin/rad_user_info", &[]).await?;
+        if reply.error == "ok" && !reply.user_name.trim().is_empty() {
+            Ok(reply.user_name)
+        } else {
+            Err(PortalError::Unknown)
+        }
     }
 
     pub async fn login(&self, username: &str, password: &str) -> Result<LoginOutcome, PortalError> {

@@ -1,3 +1,5 @@
+mod self_service;
+
 use std::{
     io::{self, IsTerminal, Write},
     process::ExitCode,
@@ -22,6 +24,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    #[command(about = "管理自助服务中的在线设备和无感知认证")]
+    Service(self_service::ServiceArgs),
     #[command(about = "查询当前连接的校园网认证状态")]
     Status,
     #[command(about = "在当前校园网络上登录一次")]
@@ -65,6 +69,7 @@ async fn main() -> ExitCode {
 
 async fn run(command: Command) -> Result<u8, (u8, String)> {
     let (mut options, interval) = match command {
+        Command::Service(args) => return self_service::run(args).await,
         Command::Status => {
             let portal = Portal::connect().await.map_err(|e| (4, e.to_string()))?;
             let ip = portal.local_ip();
